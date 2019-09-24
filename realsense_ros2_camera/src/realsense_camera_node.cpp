@@ -36,6 +36,7 @@
 #include <librealsense2/hpp/rs_processing.hpp>
 // cpplint: c++ system headers
 #include <algorithm>
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <limits>
@@ -55,6 +56,7 @@
 constexpr auto realsense_ros2_camera_version = REALSENSE_ROS_EMBEDDED_VERSION_STR;
 using realsense_camera_msgs::msg::Extrinsics;
 using realsense_camera_msgs::msg::IMUInfo;
+using namespace std::chrono_literals; // ns, us, ms, s, h, etc.
 
 namespace realsense_ros2_camera
 {
@@ -177,8 +179,10 @@ public:
     setupDevice();
     setupPublishers();
     setupStreams();
+    // trigger to publish fixed joints
+    _static_tf_timer = this->create_wall_timer(1s,
+		                     std::bind(&RealSenseCameraNode::publishStaticTransforms, this));
     rclcpp::sleep_for(std::chrono::nanoseconds(2000000000));
-    publishStaticTransforms();
     RCLCPP_INFO(logger_, "RealSense Node Is Up!");
   }
 
@@ -783,7 +787,7 @@ private:
 
   void publishStaticTransforms()
   {
-    RCLCPP_INFO(logger_, "publishStaticTransforms...");
+    RCLCPP_INFO_ONCE(logger_, "publishStaticTransforms...");
     // Publish transforms for the cameras
     tf2::Quaternion q_c2co;
     geometry_msgs::msg::TransformStamped b2c_msg;         // Base to Color
@@ -1327,6 +1331,7 @@ private:
   }
 
   rclcpp::Clock _ros_clock;
+  rclcpp::TimerBase::SharedPtr _static_tf_timer;
   std::unique_ptr<rs2::context> _ctx;
 
   std::map<stream_index_pair, std::unique_ptr<rs2::sensor>> _sensors;
